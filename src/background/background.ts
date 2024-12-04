@@ -37,8 +37,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function handleScrape() {
   try {
     const scraper = new ScrapeManager();
-    const results = await scraper.scrapeCurrentPage();
-    return { success: true, data: results };
+    await scraper.scrapeAllAddresses();
+    return { success: true };
   } catch (error) {
     logger.error('Scrape failed:', error);
     throw error;

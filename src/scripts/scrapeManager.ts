@@ -9,11 +9,65 @@ interface ScrapeResponse {
 }
 
 export class ScrapeManager {
+  private addresses: string[] = [
+    '363 E Wacker Dr, Chicago',
+    '450 Fulton Street, San Francisco',
+    '111 N Grand Ave, Los Angeles',
+    '1001 Brickell Bay Dr, Miami'
+  ];
+
   constructor() {}
+
+  public async scrapeAllAddresses() {
+    logger.info('Starting scrape of all addresses');
+    
+    for (const address of this.addresses) {
+      try {
+        logger.info(`Processing address: ${address}`);
+        await this.changeAddress(address);
+        await this.waitForPageLoad(5000); // Wait 5 seconds for page to load
+        const results = await this.scrapeCurrentPage();
+        logger.info(`Successfully scraped address: ${address}`);
+      } catch (error) {
+        logger.error(`Failed to scrape address: ${address}`, error);
+        // Continue with next address even if one fails
+        continue;
+      }
+    }
+    
+    logger.info('Completed scraping all addresses');
+  }
+
+  private async changeAddress(targetAddress: string) {
+    // Get the active DoorDash tab
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const currentTab = tabs[0];
+    
+    if (!currentTab?.id) {
+      throw new Error('No active tab found');
+    }
+
+    if (!currentTab.url?.includes('doordash.com')) {
+      throw new Error('Please navigate to DoorDash first');
+    }
+
+    // Send message to content script to change address
+    const response = await chrome.tabs.sendMessage(currentTab.id, { 
+      action: 'changeAddress',
+      address: targetAddress
+    });
+
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to change address');
+    }
+  }
+
+  private async waitForPageLoad(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
   public async scrapeCurrentPage() {
     try {
-      // Get the active DoorDash tab
       const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
       const currentTab = tabs[0];
       

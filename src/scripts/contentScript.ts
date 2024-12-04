@@ -1,6 +1,9 @@
 import { DoorDashCarouselAnalyzer } from './carouselAnalyzer';
 import { logger } from '../utils/logger';
 
+// Add this at the top of the file
+console.log('Content script loading on:', window.location.href);
+
 // Filter console noise
 const originalConsoleError = console.error;
 console.error = function(...args) {
@@ -36,9 +39,57 @@ function getCurrentAddress(): string {
   return addressText || 'Address not found';
 }
 
+// Function to change address
+async function changeAddress(targetAddress: string): Promise<boolean> {
+  try {
+    // Click the address button
+    const addressButton = document.querySelector('button[data-testid="addressTextButton"]');
+    if (!addressButton) {
+      throw new Error('Address button not found');
+    }
+    (addressButton as HTMLElement).click();
+
+    // Wait for dropdown
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Find address in dropdown
+    const addressItems = document.querySelectorAll('button[data-testid="AddressListItem"]');
+    let found = false;
+
+    for (const item of addressItems) {
+      const text = item.textContent?.toLowerCase() || '';
+      if (text.includes(targetAddress.toLowerCase())) {
+        (item as HTMLElement).click();
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      throw new Error(`Address not found in list: ${targetAddress}`);
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Failed to change address:', error);
+    return false;
+  }
+}
+
 // Add message listener
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('Content script received message:', message);
+  console.log('Content script received message:', message, 'on page:', window.location.href);
+  
+  if (message.action === 'changeAddress') {
+    (async () => {
+      const success = await changeAddress(message.address);
+      sendResponse({ 
+        success,
+        error: success ? undefined : 'Failed to change address'
+      });
+    })();
+    return true;
+  }
   
   if (message.action === 'scrapeCarousels') {
     try {
@@ -64,7 +115,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       console.error('Failed to analyze page:', error);
       sendResponse({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
     }
-    return true; // Keep the message channel open for async response
+    return true;
+  }
+  
+  if (message.action === 'ping') {
+    sendResponse({ success: true });
+    return true;
   }
 });
 

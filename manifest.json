@@ -5,8 +5,11 @@
   "description": "Internal tool for scraping DoorDash homepage data across multiple zip codes",
   "permissions": [
     "storage",
-    "activeTab",
-    "tabs"
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://*.doordash.com/*"
   ],
   "background": {
     "service_worker": "background.js",
