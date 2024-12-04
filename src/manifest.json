@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "DoorDash Homepage Scraper",
+  "version": "1.0.0",
+  "description": "Internal tool for scraping DoorDash homepage data across multiple zip codes",
+  "permissions": [
+    "storage",
+    "alarms",
+    "scripting",
+    "activeTab",
+    "tabs"
+  ],
+  "host_permissions": [
+    "*://*.doordash.com/*",
+    "https://*.doordash.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "assets/icons/icon16.png",
+      "48": "assets/icons/icon48.png",
+      "128": "assets/icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.doordash.com/*"],
+      "js": ["contentScript.js"],
+      "run_at": "document_idle",
+      "world": "MAIN"
+    }
+  ]
+} 

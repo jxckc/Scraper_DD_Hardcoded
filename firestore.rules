@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /listings/{document=**} {
+      // Allow read/write access for development
+      // WARNING: Change these rules before production!
+      allow read, write: if true;
+    }
+  }
+} 

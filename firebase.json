@@ -1,0 +1,6 @@
+{
+  "firestore": {
+    "rules": "/Users/jackcurran/Scraper_DD_Hardcoded/firestore.rules",
+    "indexes": "/Users/jackcurran/Scraper_DD_Hardcoded/firestore.indexes.json"
+  }
+}
