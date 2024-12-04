@@ -42,26 +42,53 @@ function getCurrentAddress(): string {
 // Function to change address
 async function changeAddress(targetAddress: string): Promise<boolean> {
   try {
+    console.log('Attempting to change address to:', targetAddress);
+    
     // Click the address button
     const addressButton = document.querySelector('button[data-testid="addressTextButton"]');
     if (!addressButton) {
       throw new Error('Address button not found');
     }
     (addressButton as HTMLElement).click();
+    console.log('Clicked address button');
 
-    // Wait for dropdown
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Wait for dropdown to appear
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    console.log('Waited for dropdown');
 
-    // Find address in dropdown
+    // Find address in dropdown using more specific selectors
     const addressItems = document.querySelectorAll('button[data-testid="AddressListItem"]');
+    console.log('Found address items:', addressItems.length);
+    
     let found = false;
-
     for (const item of addressItems) {
-      const text = item.textContent?.toLowerCase() || '';
-      if (text.includes(targetAddress.toLowerCase())) {
-        (item as HTMLElement).click();
-        found = true;
-        break;
+      // Look for the street name span specifically
+      const streetSpan = item.querySelector('.Text-sc-1nm69d8-0.laMCcm');
+      const cityStateSpan = item.querySelector('.Text-sc-1nm69d8-0.griaXr');
+      
+      if (streetSpan && cityStateSpan) {
+        const streetText = streetSpan.textContent?.trim() || '';
+        const cityStateText = cityStateSpan.textContent?.trim() || '';
+        
+        console.log('Checking address:', {
+          street: streetText,
+          cityState: cityStateText,
+          target: targetAddress
+        });
+
+        // Split target address into components
+        const [street, cityState] = targetAddress.split(',').map(s => s.trim());
+        
+        if (streetText.toLowerCase() === street.toLowerCase() && 
+            cityStateText.toLowerCase().includes(cityState.toLowerCase())) {
+          console.log('Found matching address, clicking...');
+          (item as HTMLElement).click();
+          found = true;
+          
+          // Wait for page to load after address change
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          break;
+        }
       }
     }
 
