@@ -39,12 +39,71 @@ function getCurrentAddress(): string {
   return addressText || 'Address not found';
 }
 
+// Helper function to normalize address text
+function normalizeAddress(address: string): string {
+  return address.toLowerCase()
+    .replace('street', 'st')
+    .replace('avenue', 'ave')
+    .replace('boulevard', 'blvd')
+    .replace('drive', 'dr')
+    .replace('lane', 'ln')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Function to find address button in dropdown
+function findAddressButton(addressText: string): Element | null {
+  console.log('Starting findAddressButton for:', addressText);
+  
+  // First, find the address list container
+  const addressList = document.querySelector('[role="radiogroup"][data-anchor-id="AddressList"]');
+  
+  if (!addressList) {
+    console.warn('Address list container not found');
+    return null;
+  }
+  console.log('Found address list container');
+
+  // Get the normalized target street name
+  const targetStreet = normalizeAddress(addressText.split(',')[0]);
+  console.log('Looking for normalized street:', targetStreet);
+
+  // Log all text content in the address list for debugging
+  const addressButtons = Array.from(addressList.querySelectorAll('[role="radio"]'));
+  const addresses = addressButtons.map(btn => {
+    const text = btn.textContent?.trim() || '';
+    const normalized = normalizeAddress(text);
+    console.log('Address in list:', { original: text, normalized });
+    return { button: btn, text: normalized };
+  });
+
+  // Find matching button
+  const matchingButton = addressButtons.find(btn => {
+    const btnText = normalizeAddress(btn.textContent || '');
+    const isMatch = btnText.includes(targetStreet);
+    console.log('Comparing:', {
+      target: targetStreet,
+      buttonText: btnText,
+      isMatch
+    });
+    return isMatch;
+  });
+
+  if (matchingButton) {
+    console.log('Found matching button:', matchingButton.textContent);
+    return matchingButton;
+  }
+
+  console.log('No matching address found');
+  return null;
+}
+
 // Function to change address
 async function changeAddress(targetAddress: string): Promise<boolean> {
   try {
     console.log('Attempting to change address to:', targetAddress);
     
-    // Click the address button
+    // Click the address button to open dropdown
     const addressButton = document.querySelector('button[data-testid="addressTextButton"]');
     if (!addressButton) {
       throw new Error('Address button not found');
@@ -56,46 +115,19 @@ async function changeAddress(targetAddress: string): Promise<boolean> {
     await new Promise(resolve => setTimeout(resolve, 2000));
     console.log('Waited for dropdown');
 
-    // Find address in dropdown using more specific selectors
-    const addressItems = document.querySelectorAll('button[data-testid="AddressListItem"]');
-    console.log('Found address items:', addressItems.length);
+    // Find and click the address button in the dropdown
+    const addressItemButton = findAddressButton(targetAddress);
     
-    let found = false;
-    for (const item of addressItems) {
-      // Look for the street name span specifically
-      const streetSpan = item.querySelector('.Text-sc-1nm69d8-0.laMCcm');
-      const cityStateSpan = item.querySelector('.Text-sc-1nm69d8-0.griaXr');
-      
-      if (streetSpan && cityStateSpan) {
-        const streetText = streetSpan.textContent?.trim() || '';
-        const cityStateText = cityStateSpan.textContent?.trim() || '';
-        
-        console.log('Checking address:', {
-          street: streetText,
-          cityState: cityStateText,
-          target: targetAddress
-        });
-
-        // Split target address into components
-        const [street, cityState] = targetAddress.split(',').map(s => s.trim());
-        
-        if (streetText.toLowerCase() === street.toLowerCase() && 
-            cityStateText.toLowerCase().includes(cityState.toLowerCase())) {
-          console.log('Found matching address, clicking...');
-          (item as HTMLElement).click();
-          found = true;
-          
-          // Wait for page to load after address change
-          await new Promise(resolve => setTimeout(resolve, 5000));
-          break;
-        }
-      }
-    }
-
-    if (!found) {
+    if (!addressItemButton) {
       throw new Error(`Address not found in list: ${targetAddress}`);
     }
 
+    console.log('Found matching address, clicking...');
+    (addressItemButton as HTMLElement).click();
+    
+    // Wait for page to load after address change
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    
     return true;
   } catch (error) {
     console.error('Failed to change address:', error);
