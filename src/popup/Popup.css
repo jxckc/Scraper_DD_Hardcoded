@@ -115,4 +115,62 @@ h2 {
   padding: 8px;
   border-radius: 4px;
   margin-bottom: 16px;
+}
+
+.Popup {
+  width: 300px;
+  padding: 16px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.login-form input {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  padding: 8px 16px;
+  background-color: #ff3008;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin: 8px 0;
+}
+
+button:hover {
+  background-color: #e62a07;
+}
+
+.logged-in {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.last-run {
+  margin: 8px 0;
+  padding: 8px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+}
+
+.checkmark {
+  color: #4caf50;
+  margin-right: 8px;
+}
+
+.status {
+  margin-top: 16px;
+  padding: 8px;
+  border-radius: 4px;
+  background-color: #f8f8f8;
+  min-height: 20px;
 } 

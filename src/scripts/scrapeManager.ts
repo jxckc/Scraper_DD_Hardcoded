@@ -1,5 +1,6 @@
 import { logger } from '../utils/logger';
 import { Carousel } from './carouselAnalyzer';
+import { storeScrapeData } from '../storage/firebase';
 
 interface ScrapeResponse {
   success: boolean;
@@ -15,22 +16,30 @@ export class ScrapeManager {
     '111 N Grand Ave, Los Angeles',
     '1001 Brickell Bay Dr, Miami'
   ];
+  private tabId: number;
 
-  constructor() {}
+  constructor(tabId: number) {
+    this.tabId = tabId;
+  }
 
   public async scrapeAllAddresses() {
     logger.info('Starting scrape of all addresses');
+    const today = new Date().toISOString().split('T')[0];
     
     for (const address of this.addresses) {
       try {
         logger.info(`Processing address: ${address}`);
         await this.changeAddress(address);
-        await this.waitForPageLoad(5000); // Wait 5 seconds for page to load
+        await this.waitForPageLoad(5000);
+        
         const results = await this.scrapeCurrentPage();
-        logger.info(`Successfully scraped address: ${address}`);
+        
+        // Store results in Firebase
+        await storeScrapeData(today, address, results);
+        
+        logger.info(`Successfully scraped and stored data for address: ${address}`);
       } catch (error) {
         logger.error(`Failed to scrape address: ${address}`, error);
-        // Continue with next address even if one fails
         continue;
       }
     }
@@ -39,20 +48,8 @@ export class ScrapeManager {
   }
 
   private async changeAddress(targetAddress: string) {
-    // Get the active DoorDash tab
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    const currentTab = tabs[0];
-    
-    if (!currentTab?.id) {
-      throw new Error('No active tab found');
-    }
-
-    if (!currentTab.url?.includes('doordash.com')) {
-      throw new Error('Please navigate to DoorDash first');
-    }
-
     // Send message to content script to change address
-    const response = await chrome.tabs.sendMessage(currentTab.id, { 
+    const response = await chrome.tabs.sendMessage(this.tabId, { 
       action: 'changeAddress',
       address: targetAddress
     });
@@ -68,15 +65,8 @@ export class ScrapeManager {
 
   public async scrapeCurrentPage() {
     try {
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      const currentTab = tabs[0];
-      
-      if (!currentTab?.id) {
-        throw new Error('No active tab found');
-      }
-
-      // Send message to content script to scrape
-      const response = await chrome.tabs.sendMessage<any, ScrapeResponse>(currentTab.id, { 
+      // Send message to content script to scrape using the stored tabId
+      const response = await chrome.tabs.sendMessage<any, ScrapeResponse>(this.tabId, { 
         action: 'scrapeCarousels' 
       });
 

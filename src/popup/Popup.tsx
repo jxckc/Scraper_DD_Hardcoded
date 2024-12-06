@@ -1,84 +1,122 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { login, logout, getCurrentUser } from '../services/auth';
+import { User } from 'firebase/auth';
 import './Popup.css';
-import { logger } from '../utils/logger';
 
-// Define interface locally for now
-interface IListing {
-  id: string;
-  timestamp: Date;
-  zip_code: string;
-  carousel_name: string;
-  merchant_name: string;
-  promotions: string[];
-}
+export default function Popup() {
+  const [status, setStatus] = useState('');
+  const [lastRunDate, setLastRunDate] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(true);
 
-export const Popup: React.FC = () => {
-  const [listings, setListings] = useState<IListing[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleScrapeClick = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      console.log('Sending startScrape message...');
-      
-      const response = await new Promise((resolve, reject) => {
-        const timeoutId = setTimeout(() => {
-          reject(new Error('Message timeout - no response from background script'));
-        }, 60000);
-
-        chrome.runtime.sendMessage({ action: 'startScrape' }, (response) => {
-          clearTimeout(timeoutId);
-          
-          if (chrome.runtime.lastError) {
-            console.error('Runtime error:', chrome.runtime.lastError);
-            reject(chrome.runtime.lastError);
-            return;
-          }
-          
-          console.log('Received response:', response);
-          resolve(response);
-        });
-      });
-
-      if (!response || (response as any).error) {
-        throw new Error((response as any)?.error || 'Failed to start scrape');
-      }
-
-    } catch (error) {
-      console.error('Scrape error:', error);
-      setError(error instanceof Error ? error.message : 'Failed to start scrape');
-    } finally {
+  useEffect(() => {
+    // Check authentication status when popup opens
+    getCurrentUser().then(user => {
+      setUser(user);
       setLoading(false);
+    });
+
+    // Get last run date when popup opens
+    chrome.runtime.sendMessage({ action: 'getLastRunDate' }, (response) => {
+      if (response.date) {
+        setLastRunDate(response.date);
+      }
+    });
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus('Logging in...');
+    try {
+      const user = await login(email, password);
+      setUser(user);
+      setStatus('Logged in successfully');
+      setEmail('');
+      setPassword('');
+    } catch (error) {
+      setStatus('Login failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
-  return (
-    <div className="popup">
-      <h1>DoorDash Scraper</h1>
-      
-      {/* Scrape Button */}
-      <button 
-        className="scrape-btn"
-        onClick={handleScrapeClick}
-        disabled={loading}
-      >
-        {loading ? 'Scraping...' : 'Scrape Now'}
-      </button>
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setUser(null);
+      setStatus('Logged out successfully');
+    } catch (error) {
+      setStatus('Logout failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
 
-      {/* Error Message */}
-      {error && (
-        <div className="error-message">
-          {error}
+  const handleScrape = async () => {
+    if (!user) {
+      setStatus('Please log in first');
+      return;
+    }
+
+    setStatus('Analyzing page...');
+    try {
+      const response = await chrome.runtime.sendMessage({ action: 'startScrape' });
+      
+      if (response.success) {
+        setStatus('Analysis complete! Check the console for results.');
+        // Refresh last run date
+        chrome.runtime.sendMessage({ action: 'getLastRunDate' }, (response) => {
+          if (response.date) {
+            setLastRunDate(response.date);
+          }
+        });
+      } else {
+        setStatus('Error: ' + (response.error || 'Unknown error'));
+      }
+    } catch (error) {
+      setStatus('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
+
+  if (loading) {
+    return <div className="Popup">Loading...</div>;
+  }
+
+  return (
+    <div className="Popup">
+      <h2>DoorDash Scraper</h2>
+      
+      {!user ? (
+        <form onSubmit={handleLogin} className="login-form">
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button type="submit">Login</button>
+        </form>
+      ) : (
+        <div className="logged-in">
+          <p>Logged in as: {user.email}</p>
+          <button onClick={handleLogout}>Logout</button>
+          
+          {lastRunDate && (
+            <div className="last-run">
+              <span className="checkmark">✓</span>
+              Last run: {new Date(lastRunDate).toLocaleDateString()}
+            </div>
+          )}
+          
+          <button onClick={handleScrape}>Run Manual Scrape</button>
         </div>
       )}
-
-      {/* Message about console */}
-      <div className="info-message">
-        Check the extension's service worker console for scraping results
-      </div>
+      
+      <div className="status">{status}</div>
     </div>
   );
-}; 
+} 
